@@ -1,0 +1,332 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>eDrainMind AI - Drainage control room</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e6edf0;--panel:#f8fafb;--ink:#10242c;--mute:#5a6e76;--line:#cdd9de;--accent:#0b6e99;--low:#2f9e6b;--med:#d9980b;--high:#d2383a;--c1:#7b3fe4;--c2:#0b8a8a;--c3:#c2570c;--r:10px}
+@media(prefers-color-scheme:dark){:root{--bg:#0c1a20;--panel:#13262e;--ink:#e4eef1;--mute:#8fa5ad;--line:#26414b;--accent:#4cb3e0}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 24px;background:#0d3b4f;color:#eaf5f9}
+header h1{margin:0;font-size:20px;font-weight:600}nav{display:flex;gap:6px}nav button{background:transparent;color:#cfe6ef;border-color:#2c6279}nav button.cur{background:#eaf5f9;color:#0d3b4f}
+.clock{font-size:14px;display:flex;gap:14px;align-items:center}.pill{padding:2px 11px;border-radius:99px;font-weight:600;font-size:13px;color:#fff;white-space:nowrap}
+.Low{background:var(--low)}.Medium{background:var(--med)}.High{background:var(--high)}
+.banner{margin:16px 24px 0;padding:14px 18px;border-radius:var(--r);color:#fff;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center}.banner b{font-size:22px}.banner span{opacity:.95}
+.wrap{padding:16px 24px;display:grid;gap:16px}.two{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:16px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+.drop{display:block;border:2px dashed var(--accent);border-radius:10px;padding:22px 10px;text-align:center;cursor:pointer;color:var(--accent);font-weight:500}.drop.over,.drop:hover{background:var(--bg)}
+select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);max-width:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}.card h2{margin:0 0 4px;font-size:16px}.sub{color:var(--mute);font-size:13px;margin:0 0 10px}
+#map{height:clamp(420px,64vh,680px);width:100%;border-radius:10px;background:#1b2a30;z-index:0}.leaflet-container{font:inherit}
+.dm{background:none;border:none}.pin{border-radius:50%;border:3px solid #fff;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.65);position:relative;cursor:pointer}
+.pin.sel{border-color:#10242c;box-shadow:0 0 0 3px #fff,0 2px 8px rgba(0,0,0,.65)}.pin.High::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--high);animation:ping 1.4s ease-out infinite}
+@keyframes ping{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(2.1)}}
+.lbl2{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;white-space:nowrap;font-size:12px;font-weight:700;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 0 7px #000;pointer-events:none}
+.arw{color:#fff;font-size:15px;text-align:center;line-height:18px;text-shadow:0 0 3px #0b5d99,0 0 6px #0b5d99}
+.depot{background:#0d3b4f;color:#fff;border:2px solid #fff;border-radius:6px;font-size:11px;font-weight:600;padding:3px 7px;box-shadow:0 2px 6px rgba(0,0,0,.5);text-align:center}
+details.help{margin:4px 0 10px;font-size:13px}details.help summary{cursor:pointer;color:var(--accent);font-weight:500}details.help p{margin:6px 0;color:var(--mute)}
+.ing{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.inb{background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13.5px}.inb h3{margin:0 0 6px;font-size:14px;display:flex;gap:8px;align-items:center}
+.inb h3 span{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}.inr{margin:4px 0}.inr small{color:var(--mute)}
+.pin{font-size:11px}.zlow .lbl2{display:none}.zlow .pin.sel+.lbl2{display:block}
+.flow{animation:flow 1s linear infinite}@keyframes flow{to{stroke-dashoffset:-36}}@media(prefers-reduced-motion:reduce){.flow,.pin::after{animation:none}}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--mute);margin-top:8px;flex-wrap:wrap;align-items:center}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+label{font-weight:500}input[type=range]{width:100%;accent-color:var(--accent)}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+button,.btn{font:inherit;font-weight:500;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--accent)}button.p{background:var(--accent);border-color:var(--accent);color:#fff}button.on{background:var(--high);border-color:var(--high);color:#fff}button.sel{background:var(--ink);color:var(--panel)}
+button:focus-visible,input:focus-visible,.node:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.counts{display:flex;gap:8px;margin-top:12px}.counts div{flex:1;text-align:center;padding:6px;border-radius:8px;color:#fff;font-size:13px}.counts b{font-size:22px;display:block}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.kv div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--mute)}.kv b{display:block;font-size:18px;color:var(--ink)}
+.eta{font-size:18px;font-weight:600;margin:6px 0}.note{background:var(--bg);border-left:4px solid var(--accent);padding:8px 10px;border-radius:4px;font-size:14px;margin:8px 0}
+.item{border-left:4px solid var(--line);padding:6px 10px;margin-bottom:8px;background:var(--bg);border-radius:4px;font-size:14px}.item small{color:var(--mute)}.empty{color:var(--mute);font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}.chip.ok{border-color:var(--low);color:var(--low)}
+.ask{display:flex;gap:8px}.ask input{flex:1;font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.bar{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}.bar span{width:120px}.bar div{height:12px;background:var(--accent);border-radius:3px}
+.cm{display:grid;grid-template-columns:repeat(2,90px);gap:4px}.cm div{padding:12px 6px;text-align:center;border-radius:6px;font-size:13px;background:var(--bg)}.cm b{display:block;font-size:20px}
+img.prev{max-width:100%;border-radius:8px;margin-top:8px;max-height:130px}.hide{display:none}
+.rgrid{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:16px;padding:16px 24px 0;align-items:start}.rl,.rr{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-content:start;min-width:0}.rm{min-width:0}.rl .card{padding:12px 14px}.rl .card h2{font-size:15px}
+.rm{position:relative}#rmap{height:clamp(500px,76vh,800px);width:100%;border-radius:10px;background:#0b1a22;z-index:0}#rmap.pick,#rmap.pick .leaflet-grab,#rmap.pick .leaflet-interactive{cursor:crosshair!important}
+.ovl{position:absolute;z-index:500;background:rgba(9,22,30,.92);color:#e4eef1;border:1px solid #2b4a58;border-radius:8px;padding:8px 12px;font-size:12.5px;line-height:1.5;max-width:300px}.otl{top:12px;left:58px}.otc{top:12px;left:50%;transform:translateX(-50%)}
+.obc{bottom:26px;left:50%;transform:translateX(-50%);border:2px solid #00e5ff;text-align:center;font-weight:600;max-width:92%;font-size:13px}.obc small{font-weight:500;color:#cfe3ea}
+.fl{display:block;font-size:12.5px;font-weight:600;color:var(--mute);margin:8px 0 2px}.rrow{display:flex;gap:6px;margin:4px 0;align-items:center}.rrow input[type=text],.rrow select{flex:1;min-width:0;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+button.sm{padding:3px 9px;font-size:12.5px}.rad{display:block;font-size:13.5px;margin:3px 0}.sug .sg{padding:6px 8px;border:1px solid var(--line);background:var(--bg);font-size:12.5px;cursor:pointer;border-radius:6px;margin-top:3px}.sug .sg:hover{border-color:var(--accent)}
+.wr{display:grid;grid-template-columns:96px 1fr 38px;gap:6px;align-items:center;font-size:13px;margin:3px 0}.wr b{text-align:right}.lg{display:grid;gap:5px;font-size:13px}.lg i{display:inline-block;width:22px;height:6px;border-radius:3px;margin-right:8px;vertical-align:middle}
+.kc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.kc h3{margin:0 0 8px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--mute)}.kc .big{font-size:26px;font-weight:600;line-height:1.2}.kc .big small{font-size:13px;font-weight:400}.kc small{color:var(--mute)}.two2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rt{width:100%;border-collapse:collapse;font-size:14px}.rt th,.rt td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}.rt th{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.rt tbody tr{cursor:pointer}.fw{table-layout:fixed}.fw th,.fw td{padding:5px 3px;font-size:12px}.rt tbody tr.on,.rt tbody tr:hover{background:var(--bg)}
+.rpin{width:28px;height:28px;border-radius:50%;border:3px solid #fff;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+.xmk{width:26px;height:26px;border-radius:50%;border:2px solid #fff;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.6)}.dmk{width:24px;height:24px;border-radius:50%;border:2px solid #fff;color:#fff;font-weight:700;font-size:10.5px;display:flex;align-items:center;justify-content:center}
+.rlbl{position:absolute;left:50%;top:-22px;transform:translateX(-50%);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.3px;border:1px solid rgba(255,255,255,.7);border-radius:3px;padding:1px 6px;white-space:nowrap;pointer-events:none}
+@media(max-width:1180px){.rgrid{grid-template-columns:1fr}#rmap{height:62vh}.otl{left:58px;max-width:60%}}
+@media(max-width:980px){.two,.three{grid-template-columns:1fr}}
+</style></head><body>
+<header><div><h1>eDrainMind AI</h1></div><nav><button id="n1" class="cur">Dashboard</button><button id="n2">Model report</button><button id="n3">Emergency routes</button></nav>
+<div class="clock"><span id="clk"></span><span>Rain <b id="rainTop"></b> mm/h</span></div></header>
+
+<section id="v1"><div class="banner" id="banner"></div>
+<div class="wrap"><div class="two"><div style="display:grid;gap:16px;align-content:start">
+<section class="card"><h2>Drain map</h2><p class="sub">Real map of Palakkad. Each circle is a drain; the number is its flood risk out of 100. Moving blue lines show which way water flows (downhill) and blue puddles grow as water rises. Use the layer switch (top right) for satellite or street view.</p>
+<div id="map" role="region" aria-label="Map of Palakkad drains coloured by flood risk"></div><p class="sub" id="gsrc" style="margin:8px 0 0"></p><p class="sub" id="wcount" style="margin:2px 0 0"></p>
+<div class="legend"><span><i style="background:var(--low)"></i>Safe</span><span><i style="background:var(--med)"></i>Watch</span><span><i style="background:var(--high)"></i>Act now</span><span>Bigger circle = more likely blocked</span>
+<label style="margin-left:auto"><input type="checkbox" id="routes" checked> Show crew routes</label></div></section>
+<section class="card hide" id="area"></section>
+<section class="card"><h2 id="wtitle">Rain forecast</h2><p class="sub" id="wsrc">Loading forecast...</p><div id="weather"></div><div class="row"><button id="wtest">What if this rain arrives?</button><button id="wapply">Use peak rain in simulator</button></div><div id="wres"></div></section></div>
+<aside style="display:grid;gap:16px;align-content:start">
+<section class="card"><h2>Try a rainfall scenario</h2><label for="rain">Rain: <b id="rv">8</b> mm/h</label><input id="rain" type="range" min="0" max="100" value="8">
+<div class="row"><button data-r="0">Dry</button><button data-r="10">Drizzle</button><button data-r="30">Heavy</button><button data-r="60">Storm</button><button data-r="90">Cyclone</button></div>
+<div class="row"><button class="p" id="step">Move ahead 10 min</button><button id="auto">Auto-run</button><button id="reset">Reset</button></div>
+<div class="counts"><div class="Low"><b id="cL">0</b>Safe</div><div class="Medium"><b id="cM">0</b>Watch</div><div class="High"><b id="cH">0</b>Act now</div></div></section>
+<section class="card"><h2>Photo check (computer vision)</h2><p class="sub">Upload a photo of a drain. The AI looks for plastic, leaves and other waste, then updates that drain's risk.</p>
+<div class="row" style="margin:0 0 8px"><label for="pdrain">Drain:</label><select id="pdrain"></select></div>
+<label class="drop" id="drop" for="file">Click to choose a photo, or drag one here</label><input type="file" id="file" accept="image/*" hidden>
+<div class="row"><button id="sb">Try sample: blocked</button><button id="sc">Try sample: clear</button></div><div id="cv"></div><div class="sub" id="aitip" style="margin-top:8px"></div></section>
+<section class="card" id="detail"></section></aside></div>
+<div class="three"><section class="card"><h2>Fix these first</h2><p class="sub">Sorted by how soon they will overflow.</p><div id="prio"></div></section>
+<section class="card"><h2>Crew plan</h2><p class="sub">Who goes where, and when they arrive.</p><details class="help"><summary>What does the crew plan do?</summary><p>It turns the risk scores into a work order. It takes every <b>Act now</b> drain (or the <b>Watch</b> drains if none are red), puts the one that will overflow soonest first, and gives each stop to the crew that can get there earliest. Crews start at the Depot, drive about 15 km/h and spend 15 min cleaning each drain.</p><p><b>"after predicted overflow"</b> means that crew will arrive later than the AI expects the drain to overflow. Press 2 or 3 crews to split the work and cut the waiting time.</p><p><b>Dispatch crews and clean</b> is a simulation: it marks the planned drains as cleaned (waste cleared, water level halved, one more blockage recorded) so you can watch the risk fall. It does not contact real crews.</p></details><div class="row" style="margin:0 0 8px"><span>Crews:</span><button data-c="1">1</button><button data-c="2" class="sel">2</button><button data-c="3">3</button></div><div id="plan"></div></section>
+<section class="card"><h2>Alerts</h2><div class="chips" id="cfg" style="margin-bottom:8px"></div><div id="alerts"></div><div class="row"><button id="mail">Send test email</button><a class="btn" href="/api/report.txt">Report</a><a class="btn" href="/api/report.csv">CSV</a></div><div id="mailres" class="sub"></div></section></div>
+<section class="card" id="inputs"></section>
+<section class="card"><h2>Ask the assistant</h2><p class="sub" id="asrc">Ask in plain English about the drains right now.</p><div class="ask"><input id="q" placeholder="Which roads are risky tonight?" aria-label="Question"><button class="p" id="go">Ask</button></div>
+<div class="row"><button class="chip" data-q="Which roads are risky tonight?">Which roads are risky tonight?</button><button class="chip" data-q="What should we clean first?">What should we clean first?</button><button class="chip" data-q="Will anything overflow in the next hour?">Will anything overflow in the next hour?</button></div><div class="note hide" id="ans"></div></section></div></section>
+
+<section id="v2" class="hide"><div class="wrap" id="report"></div></section>
+<section id="v3" class="hide"><div class="rgrid">
+<aside class="rl">
+<section class="card"><h2>Plan a safe route</h2><p class="sub">Real roads from OpenStreetMap, checked against this app's flood risk.</p>
+<label class="fl" for="rfrom">From</label><div class="rrow"><input id="rfrom" type="text" placeholder="Type a place, press Enter" autocomplete="off"><button id="rfromb" title="Click the start point on the map">Map</button></div><div class="sug" id="rfromsug"></div>
+<label class="fl" for="rto">To</label><div class="rrow"><input id="rto" type="text" placeholder="Type a place, press Enter" autocomplete="off"><button id="rtob" title="Click the destination on the map">Map</button></div><div class="sug" id="rtosug"></div>
+<label class="fl" for="rquick">Quick pick</label><div class="rrow"><select id="rquick"><option value="">Hospitals and monitored places</option></select></div>
+<div class="rrow"><button class="sm" id="rqf">Use as From</button><button class="sm" id="rqt">Use as To</button><button class="sm" id="rswap">Swap</button></div>
+<div class="fl">Vehicle</div><label class="rad"><input type="radio" name="rveh" value="normal" checked> Normal vehicle</label><label class="rad"><input type="radio" name="rveh" value="emergency"> Ambulance / rescue (time matters more)</label>
+<button class="p" id="rgo" style="width:100%;margin-top:10px">Find safest route</button><div id="rmsg" class="sub" style="margin-top:8px"></div></section>
+<section class="card"><h2>Scoring weights</h2><p class="sub">Starting values, not universal optima. They are normalised to 100%.</p><div id="rwts"></div><button class="sm" id="rwreset">Reset to default</button></section>
+<section class="card"><h2>Rain scenario</h2><p class="sub">Rain now: <b id="rrainv"></b> mm/h. Changes the flood risk of every road.</p><input type="range" id="rrain" min="0" max="100" value="8">
+<div class="rrow" style="flex-wrap:wrap"><button class="sm" data-rr="0">Dry</button><button class="sm" data-rr="10">Drizzle</button><button class="sm" data-rr="30">Heavy</button><button class="sm" data-rr="60">Storm</button><button class="sm" data-rr="90">Cyclone</button><button class="sm" id="rstep">+10 min</button></div></section>
+<section class="card"><h2>Report a road problem</h2><p class="sub">Closures you report are used by the route AI right away.</p><div class="rrow" style="flex-wrap:wrap"><button class="sm" data-inc="closed">Road closed</button><button class="sm" data-inc="flooded">Flooded road</button><button class="sm" data-inc="blocked">Blocked / accident</button></div><div id="rinclist" style="margin-top:8px"></div></section>
+<section class="card"><h2>Flood risk legend</h2><div class="lg"><span><i style="background:#2fbf71"></i>Safe &lt;25</span><span><i style="background:#f2c230"></i>Moderate 25-49</span><span><i style="background:#ff8a1f"></i>High 50-74</span><span><i style="background:#e53935"></i>Critical 75+ or closed</span><span><i style="background:#00e5ff"></i>Recommended route</span></div></section>
+</aside>
+<div class="rm"><div id="rmap"></div><div class="ovl otl" id="rinc"></div><div class="ovl obc hide" id="rrec"></div><div class="ovl otc hide" id="rbusy">Finding real roads and flood risk...</div></div>
+<aside class="rr" id="rkpi"><div class="kc"><h3>Safe route finder</h3><p class="sub" style="margin:0">Choose a start and destination, then press <b>Find safest route</b>. Roads on the map are highlighted by flood risk.</p></div></aside>
+</div><div class="wrap"><section class="card" id="rtable"></section></div></section>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=s=>document.querySelector(s),C={Low:'var(--low)',Medium:'var(--med)',High:'var(--high)'},W={Low:'Safe',Medium:'Watch',High:'Act now'},CC=['var(--c1)','var(--c2)','var(--c3)'];
+let S,P,sel='D4',crews=2,timer=null,busy=false,wx=null;
+const post=async(u,b,f)=>(await fetch(u,{method:'POST',headers:f?{}:{'Content-Type':'application/json'},body:f||JSON.stringify(b||{})})).json(),get=async u=>(await fetch(u)).json();
+const set=async s=>{S=s;P=await get('/api/plan?crews='+crews);draw()};
+const mins=e=>e==null?'No overflow expected in the next hour':e==0?'Overflowing now':'Overflows in about '+e+' min';
+function chart(o){const h=o.history,f=o.forecast,n=h.length+f.length,X=i=>10+i*300/(n-1),Y=v=>110-v,pts=a=>a.map(([i,v])=>X(i)+','+Y(v)).join(' ');
+return `<svg viewBox="0 0 320 125" style="width:100%" role="img" aria-label="Water level, past and forecast"><line x1="10" x2="310" y1="30" y2="30" stroke="var(--high)" stroke-dasharray="3 3"/><text x="12" y="26" font-size="9" fill="var(--high)">overflow line 80%</text>
+<polyline points="${pts(h.map((v,i)=>[i,v]))}" fill="none" stroke="var(--accent)" stroke-width="2.5"/><polyline points="${pts([[h.length-1,h[h.length-1]],...f.map((v,i)=>[h.length+i,v])])}" fill="none" stroke="${C[o.level]}" stroke-width="2.5" stroke-dasharray="5 4"/>
+<text x="10" y="123" font-size="9" fill="var(--mute)">past 2 h</text><text x="240" y="123" font-size="9" fill="var(--mute)">next hour (forecast)</text></svg>`}
+let MAP=null,LAY={},fitted=false,AREAD=null;const CCH=['#b388ff','#2dd4d4','#ffa24d'];
+const bearing=(a,b)=>(Math.atan2((b[1]-a[1])*Math.cos(a[0]*Math.PI/180),b[0]-a[0])*180/Math.PI+360)%360;
+const compass=b=>['north','north-east','east','south-east','south','south-west','west','north-west'][Math.round(b/45)%8];
+const zoomCls=()=>{if(MAP)MAP.getContainer().classList.toggle('zlow',MAP.getZoom()<15)};
+function initMap(){
+ if(MAP)return true;if(typeof L==='undefined')return false;
+ const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
+ const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});
+ MAP=L.map('map',{layers:[sat]});LAY.water=L.layerGroup().addTo(MAP);LAY.area=L.layerGroup().addTo(MAP);LAY.net=L.layerGroup().addTo(MAP);
+ L.control.layers({'Satellite':sat,'Street map':osm},{'Real drains & canals (OpenStreetMap)':LAY.water,'Drainage of clicked area':LAY.area,'Drain network':LAY.net}).addTo(MAP);
+ MAP.on('zoomend',zoomCls);MAP.on('click',e=>areaAt(e.latlng.lat,e.latlng.lng));
+ let warned=false;[sat,osm].forEach(t=>t.on('tileerror',()=>{if(!warned){warned=true;$('#wcount').textContent='Some map tiles did not load - check your internet connection.'}}));
+ fetch('/api/osm_water').then(r=>r.json()).then(a=>{const col={drain:'#00e5ff',ditch:'#00e5ff'};a.forEach(w=>L.polyline(w.pts,{color:col[w.kind]||'#4da3ff',weight:w.kind=='river'?5:2.5,opacity:.85}).bindTooltip((w.name||'Unnamed')+' ('+w.kind+', OpenStreetMap)').addTo(LAY.water));
+  $('#wcount').textContent=(a.length?a.length+' real drains, canals and streams from OpenStreetMap are drawn on the map. ':'')+'Click anywhere on the map to see the drainage around that spot.'}).catch(()=>{});
+ return true}
+async function areaAt(lat,lon,did){
+ const box=$('#area');box.classList.remove('hide');box.innerHTML=`<h2>Drainage around this spot</h2><div class="empty">Loading real drainage data around ${lat.toFixed(5)}, ${lon.toFixed(5)} ... (a few seconds)</div>`;
+ let a;try{a=await get('/api/area?lat='+lat+'&lon='+lon+'&r=600');if(a.error)throw 0}catch(e){box.innerHTML='<h2>Drainage around this spot</h2><div class="empty">Could not load this area. Check the server window and your internet connection.</div>';return}
+ AREAD=a;renderArea(a,did)}
+function renderArea(a,did){
+ const G=LAY.area,box=$('#area'),e=a.elev;G.clearLayers();
+ L.circle([a.lat,a.lon],{radius:a.radius,color:'#ffd54a',weight:2,dashArray:'6 6',fill:false,interactive:false}).addTo(G);
+ a.waterways.forEach(w=>L.polyline(w.pts,{color:(w.kind=='river'||w.kind=='canal')?'#4da3ff':'#00e5ff',weight:5,opacity:.95}).bindTooltip((w.name||'Unnamed')+' - '+w.kind+' ('+w.length+' m, OpenStreetMap)').addTo(G));
+ a.points.forEach(p=>L.circleMarker([p.lat,p.lon],{radius:5,color:'#fff',weight:2,fillColor:'#ff9800',fillOpacity:1}).bindTooltip(p.kind+' (OpenStreetMap)').addTo(G));
+ const dh=e&&e.downhill;if(dh)L.polyline([[a.lat,a.lon],[dh.lat,dh.lon]],{color:'#ff9800',weight:5,opacity:.95}).bindTooltip('Water runs downhill this way').addTo(G);
+ L.circleMarker([a.lat,a.lon],{radius:7,color:'#fff',weight:3,fillColor:'#ffd54a',fillOpacity:1,interactive:false}).addTo(G);
+ const top=[...a.waterways].sort((x,y)=>y.length-x.length).slice(0,5);
+ let flow=!e?'Ground height is not available right now.':dh?`Water here runs downhill toward the <b>${compass(bearing([a.lat,a.lon],[dh.lat,dh.lon]))}</b> (${dh.drop} m lower within ${dh.dist} m) - the orange line.`:'This spot is flat or a local low, so water tends to collect here instead of draining away.';
+ if(e&&e.pocket>=2)flow+=` It sits <b>${e.pocket} m lower</b> than the ground around it.`;
+ const found=a.waterways.length||a.points.length;
+ box.innerHTML=`<h2>Drainage around this spot <span class="pill ${a.level}">${W[a.level]}</span></h2><p class="sub">${a.lat.toFixed(5)}, ${a.lon.toFixed(5)} - within ${a.radius} m (dashed yellow circle)${e?' - ground height '+e.here+' m':''}</p>
+<div class="kv"><div>Drain / canal lines<b>${a.waterways.length}</b></div><div>Total length<b>${a.total_length} m</b></div><div>Manholes / points<b>${a.points.length}</b></div><div>Est. flood risk<b>${a.risk}</b></div></div>
+<div class="note">${flow}</div>
+${found?`<div class="note"><b>Real drainage found (OpenStreetMap):</b><br>${top.map(w=>(w.name||'Unnamed')+' - '+w.kind+', '+w.length+' m').join('<br>')}${a.waterways.length>5?'<br>and '+(a.waterways.length-5)+' more':''}${a.points.length?'<br>'+a.points.length+' manhole / drain points (orange dots)':''}</div>`:`<div class="note">${a.osm_error?'OpenStreetMap could not be reached ('+a.osm_error+').':'OpenStreetMap has no drains mapped within '+a.radius+' m of this spot (coverage is often incomplete in towns).'} The risk is estimated from the nearest monitored drains and the ground height.</div>`}
+<div class="sub" style="margin-top:8px">Nearest monitored drains (click to open)</div>${a.nearest.map(n=>`<div class="item" style="border-color:${C[n.level]};cursor:pointer" data-sel="${n.id}"><b>${n.name}</b> <span class="pill ${n.level}">${n.flood}</span> <small>${n.dist} m away</small></div>`).join('')}
+<div class="row">${did?'':'<button class="p" id="addd">Monitor this spot as a new drain</button>'}<button id="closea">Close</button></div>
+<p class="sub" style="margin-top:6px">Estimated risk mixes the 3 nearest monitored drains, how low the ground is and the current rain (${a.rain} mm/h). It is an estimate, not a sensor reading.</p>`;
+ box.querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{sel=b.dataset.sel;draw();const o=S.drains.find(x=>x.id==sel);MAP.setView([o.lat,o.lon],Math.max(MAP.getZoom(),16));areaAt(o.lat,o.lon,o.id)});
+ $('#closea').onclick=()=>{G.clearLayers();box.classList.add('hide')};
+ if($('#addd'))$('#addd').onclick=async()=>{const nm=prompt('Name for this new drain:','Spot '+(S.drains.length+1));if(nm===null)return;G.clearLayers();box.classList.add('hide');const st=await post('/api/add_drain',{lat:a.lat,lon:a.lon,name:nm});if(!st.error){sel=st.drains[st.drains.length-1].id;await set(st)}}}
+function mapDraw(d,m){
+ $('#gsrc').textContent=S.geo.source+' Rain history: '+S.geo.rain+'.';
+ if(!initMap()){$('#map').innerHTML='<div class="empty" style="padding:30px;color:#fff">The map library could not load. Connect to the internet and refresh the page.</div>';return}
+ const G=LAY.net;G.clearLayers();if(!fitted){MAP.fitBounds(L.latLngBounds(d.map(o=>[o.lat,o.lon])).pad(.25),{maxZoom:16});fitted=true;zoomCls()}
+ S.edges.forEach(([u,v])=>{const a=m[u],b=m[v];L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:'#43b4ff',weight:5,opacity:.95,dashArray:'10 8',className:'flow'}).addTo(G);
+  L.marker([(a.lat+b.lat)/2,(a.lon+b.lon)/2],{interactive:false,icon:L.divIcon({className:'dm',html:`<div class="arw" style="transform:rotate(${bearing([a.lat,a.lon],[b.lat,b.lon])}deg)">&#9650;</div>`,iconSize:[18,18],iconAnchor:[9,9]})}).addTo(G)});
+ d.forEach(o=>{if(o.water>35)L.circle([o.lat,o.lon],{radius:15+o.water*.9,color:'#3b9fe0',weight:1,fillColor:'#3b9fe0',fillOpacity:.4,interactive:false}).addTo(G)});
+ if($('#routes').checked)P.crews.forEach((c,i)=>L.polyline(c.path,{color:CCH[i%3],weight:4,opacity:.95,dashArray:'3 9',lineCap:'round'}).addTo(G));
+ L.marker(S.depot,{interactive:false,icon:L.divIcon({className:'dm',html:'<div class="depot">Depot</div>',iconSize:[54,26],iconAnchor:[27,13]})}).addTo(G);
+ d.forEach(o=>{const r=9+o.blockage/14;L.marker([o.lat,o.lon],{title:o.name+': '+W[o.level],zIndexOffset:o.id==sel?1000:o.level=='High'?500:0,icon:L.divIcon({className:'dm',iconSize:[2*r,2*r],iconAnchor:[r,r],
+  html:`<div class="pin ${o.level} ${o.id==sel?'sel':''}" style="width:${2*r}px;height:${2*r}px;background:${C[o.level]}">${o.flood}</div><div class="lbl2">${o.name}</div>`})}).on('click',()=>{sel=o.id;draw();MAP.setView([o.lat,o.lon],Math.max(MAP.getZoom(),16));areaAt(o.lat,o.lon,o.id)}).addTo(G)})}
+const rc=m=>m<=0?'No rain':m<2.5?'Light rain':m<7.6?'Moderate rain':m<50?'Heavy rain':'Very heavy rain',wcl=w=>w<40?'Low':w<70?'Medium':'High';
+function renderInputs(o){
+ const h=S.inputs&&S.inputs.rain_hist,ph=o.photo,box=(n,t,rows)=>`<div class="inb"><h3><span>${n}</span>${t}</h3>${rows.map(r=>`<div class="inr">${r}</div>`).join('')}</div>`;
+ $('#inputs').innerHTML=`<h2>Input data the AI uses</h2><p class="sub">The five inputs behind every prediction, shown for <b>${o.name}</b>. Click another pin or choose another drain to change it.</p><div class="ing">`+
+ box(1,'Rainfall data',[`Now: <b>${S.rain} mm/h - ${rc(S.rain)}</b>`,`At this drain (latest step): <b>${o.rain_now} mm/h</b>`,wx?`Live forecast peak (${wx.place}): <b>${wx.peak} mm/h - ${rc(wx.peak)}</b>`:'Live forecast: loading...',h?`History: <b>${h.hours.toLocaleString()} real hours</b> (${h.years} years), ${h.heavy_hours} heavy-rain hours, max ${h.max_mm_h} mm/h`:'History: synthetic rain (no rainfall.csv found)'])+
+ box(2,'Water level data',[`In the drain now: <b>${o.water}% - ${wcl(o.water)}</b>`,`Forecast peak next hour: <b>${o.peak}% - ${wcl(o.peak)}</b>`,`Overflow line: 80%. ${o.eta_text}`])+
+ box(3,'Drainage images',ph?[`Latest photo: <b>${ph.label}</b> (${ph.score}% blocked) at ${ph.time}`,ph.summary||'',`Checked by: ${ph.source}`,ph.items&&ph.items.length?'Seen: '+ph.items.join(', '):''].filter(Boolean):['No photo checked for this drain yet. Use the Photo check card.',`Waste level now (estimate): <b>${o.waste}%</b>`])+
+ box(4,'Location data',[`<b>${o.road}</b> - Drain: ${o.name}`,`${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}${o.elev!=null?' - ground '+o.elev+' m':''}`,`Receives water from: <b>${o.upstream&&o.upstream.length?o.upstream.join(', '):'none (start of the line)'}</b>`,`Sends water to: <b>${o.downstream&&o.downstream.length?o.downstream.join(', '):'none (outfall)'}</b>`])+
+ box(5,'Historical data',[`Previous blockage incidents: <b>${o.past}</b>`,`Drain age: <b>${o.age} years</b>`,`Last cleaned: <b>${o.cleaned||'not in this session'}</b>`,`Alerts for this drain this session: <b>${S.alerts.filter(a=>a.id==o.id).length}</b>`,'<small>Incident counts and drain age are simulated; replace them with your municipality log (data/drain_data.csv).</small>'])+'</div>'}
+function draw(){const d=S.drains,m={};d.forEach(o=>m[o.id]=o);if(!m[sel])sel=d[0].id;$('#clk').textContent='Time '+S.clock;const ps=$('#pdrain');if(ps.options.length!=d.length){ps.innerHTML='';d.forEach(o=>ps.add(new Option(o.name,o.id)))}ps.value=sel;$('#rainTop').textContent=S.rain;
+const H=S.counts.High,Md=S.counts.Medium,lv=H?'High':Md?'Medium':'Low',f=d.filter(o=>o.eta!=null).sort((a,b)=>a.eta-b.eta)[0];
+$('#banner').style.background=C[lv];$('#banner').innerHTML=`<b>${H?H+(H>1?' drains need':' drain needs')+' action now':Md?Md+(Md>1?' drains':' drain')+' to keep an eye on':'All drains are flowing normally'}</b><span>${f?'First overflow: '+f.name+', '+mins(f.eta).toLowerCase()+'.':'No overflow expected in the next hour.'}</span>`;
+['L','M','H'].forEach((k,i)=>$('#c'+k).textContent=S.counts[['Low','Medium','High'][i]]);
+mapDraw(d,m);
+const o=m[sel];$('#detail').innerHTML=`<h2>${o.name} <span class="pill ${o.level}">${W[o.level]}</span></h2><p class="sub">${o.road} - ${o.status}<br>${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}${o.elev!=null?" - ground height "+o.elev+" m above sea level (real data)":""}</p><div class="eta" style="color:${C[o.level]}">${o.eta_text}</div>
+<div class="kv"><div>Water<b>${o.water}%</b></div><div>Waste seen<b>${o.waste}%</b></div><div>Blocked?<b>${o.blockage}%</b></div><div>Flood risk<b>${o.flood}</b></div></div>${chart(o)}
+<div class="note" id="exp">${o.explain}</div><div class="note" style="border-color:${C[o.level]}"><b>What to do:</b> ${o.rec}</div>
+<div class="row"><button id="xai">Explain with AI</button><button id="clean">Mark cleaned</button></div>`;
+renderInputs(o);$('#aitip').textContent=S.cfg.ai?'':'Tip: add LLM_API_KEY to .env so the AI can really understand real photos. Without it the result is only a rough estimate.';
+$('#clean').onclick=async()=>set(await post('/api/clean',{id:sel}));
+$('#xai').onclick=async()=>{$('#exp').textContent='Thinking...';const r=await get('/api/explain?id='+sel);$('#exp').textContent=r.text+' ('+r.source+')'};
+const pr=[...d].filter(o=>o.level!='Low').sort((a,b)=>(a.eta??999)-(b.eta??999)||b.flood-a.flood).slice(0,5);
+$('#prio').innerHTML=pr.length?pr.map(p=>`<div class="item" style="border-color:${C[p.level]}"><b>${p.name}</b> <span class="pill ${p.level}">${p.flood}</span><br><small>${p.road} - ${p.eta_text}</small></div>`).join(''):'<div class="empty">All clear right now. Raise the rain to see the system react.</div>';
+$('#plan').innerHTML=P.crews.length?P.crews.map((c,i)=>`<div class="item" style="border-color:${CC[i]}"><b>Crew ${c.id}</b>${c.stops.map((t,k)=>`<br>${k+1}. ${t.name} <small>- arrives in ${t.arrive} min${t.late?' (after predicted overflow)':''}</small>`).join('')}</div>`).join('')+`<div class="sub">All stops done in about ${P.total} min (15 min per drain).</div><button id="disp" class="p">Dispatch crews and clean</button>`:'<div class="empty">No crews needed right now.</div>';
+if($('#disp'))$('#disp').onclick=async()=>set(await post('/api/clean',{ids:P.targets}));
+$('#cfg').innerHTML=[['Email',S.cfg.email],['AI assistant',S.cfg.ai],['PyTorch models',S.cfg.torch]].map(([n,v])=>`<span class="chip ${v?'ok':''}">${n}: ${v?'on':'off'}</span>`).join('');
+$('#alerts').innerHTML=S.alerts.length?S.alerts.slice(0,6).map(a=>`<div class="item" style="border-color:${a.active?'var(--high)':'var(--line)'}"><span class="pill ${a.active?'High':''}" style="${a.active?'':'background:var(--mute)'}">${a.active?'Active':'Resolved'}</span> <small>${a.time}</small><br>${a.msg}<br><small>${a.mail.text}</small></div>`).join(''):'<div class="empty">No alerts yet.</div>'}
+async function scan(file){$('#cv').innerHTML='<div class="empty">Analysing photo...</div>';const f=new FormData();f.append('file',file);f.append('drain_id',$('#pdrain').value);const r=await post('/api/analyze_image',null,f);if(r.error){$('#cv').textContent=r.error;return}
+sel=$('#pdrain').value;const nm=S.drains.find(o=>o.id==sel).name;await set(r.state);const col=!r.risk_updated?'var(--mute)':r.score<20?'var(--low)':r.score<50?'var(--med)':'var(--high)';
+$('#cv').innerHTML=`<img class="prev" src="${URL.createObjectURL(file)}" alt="Drain photo"><div class="note" style="border-color:${col}"><b>${nm}: ${r.label}</b>${r.risk_updated?' ('+r.score+'% blocked)':''}<br>${r.summary||''}${r.items&&r.items.length?'<br><small>Seen: '+r.items.join(', ')+'</small>':''}<br><small>Checked by: ${r.source} - confidence: ${r.confidence}</small><br><small>${r.risk_updated?'Drain risk updated.':'Drain risk not changed.'}</small></div>`}
+function weather(){const h=wx.hours,mx=Math.max(wx.peak,5);$('#wtitle').textContent='Rain forecast - '+wx.place;$('#wsrc').textContent=wx.source+' ('+wx.lat+', '+wx.lon+'). Peak '+wx.peak+' mm/h.';
+$('#weather').innerHTML=`<svg viewBox="0 0 480 90" style="width:100%" role="img" aria-label="Hourly rain forecast">${h.map((x,i)=>{const b=x.mm/mx*60;return `<rect x="${i*20+2}" y="${70-b}" width="16" height="${Math.max(b,1)}" fill="var(--accent)" rx="2"><title>${x.t}: ${x.mm} mm/h</title></rect>`+(i%4==0?`<text x="${i*20+2}" y="86" font-size="9" fill="var(--mute)">${x.t}</text>`:'')}).join('')}</svg>`}
+$('#wtest').onclick=async()=>{const r=await get('/api/whatif?rain='+wx.peak);$('#wres').innerHTML=`<div class="note">If ${wx.peak} mm/h arrives for the next hour: <b>${r.high} drains act-now</b>, ${r.medium} watch. Worst: ${r.top.map(t=>t.name+' ('+t.eta_text.toLowerCase()+')').join('; ')}.</div>`};
+$('#wapply').onclick=async()=>{$('#rain').value=Math.round(wx.peak);$('#rv').textContent=Math.round(wx.peak);set(await post('/api/rain',{rain:wx.peak}))};
+$('#rain').oninput=e=>$('#rv').textContent=e.target.value;$('#rain').onchange=async e=>set(await post('/api/rain',{rain:+e.target.value}));
+document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{$('#rain').value=b.dataset.r;$('#rv').textContent=b.dataset.r;set(await post('/api/rain',{rain:+b.dataset.r}))});
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{crews=+b.dataset.c;document.querySelectorAll('[data-c]').forEach(x=>x.className=x==b?'sel':'');set(S)});
+$('#routes').onchange=draw;$('#step').onclick=async()=>set(await post('/api/tick',{n:1}));$('#reset').onclick=async()=>{set(await post('/api/reset'));$('#rain').value=8;$('#rv').textContent=8};
+$('#auto').onclick=e=>{if(timer){clearInterval(timer);timer=null;e.target.className='';e.target.textContent='Auto-run'}else{e.target.className='on';e.target.textContent='Stop';timer=setInterval(async()=>{if(busy)return;busy=true;await set(await post('/api/tick',{n:1}));busy=false},1500)}};
+$('#mail').onclick=async()=>{$('#mailres').textContent='Sending...';$('#mailres').textContent=(await post('/api/email/test')).status};
+async function ask(q){if(!q)return;$('#ans').className='note';$('#ans').textContent='Thinking...';const r=await post('/api/ask',{question:q});$('#ans').textContent=r.answer;$('#asrc').textContent='Source: '+r.source}
+$('#go').onclick=()=>ask($('#q').value);$('#q').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ask($('#q').value)}};document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;ask(b.dataset.q)});
+const cm=(m,a,b)=>`<div class="cm"><div><b>${m[0][0]}</b>${a} correct</div><div><b>${m[0][1]}</b>false alarm</div><div><b>${m[1][0]}</b>missed</div><div><b>${m[1][1]}</b>${b} correct</div></div>`;
+async function report(){const m=await get('/api/metrics'),b=m.blockage,v=m.vision,f=m.forecaster,mx=Math.max(...Object.values(b.importance));
+$('#report').innerHTML=`<div class="three"><section class="card"><h2>Blockage model</h2><p class="sub">${b.model}<br>${b.data} (${b.n} rows, tested on 20%)</p><div class="kv" style="grid-template-columns:repeat(2,1fr)"><div>Accuracy<b>${b.accuracy}</b></div><div>Precision<b>${b.precision}</b></div><div>Recall<b>${b.recall}</b></div><div>F1 score<b>${b.f1}</b></div></div>${cm(b.matrix,'not blocked','blocked')}</section>
+<section class="card"><h2>Which inputs matter most?</h2><p class="sub">Feature importance of the blockage model</p>${Object.entries(b.importance).map(([k,x])=>`<div class="bar"><span>${k}</span><div style="width:${x/mx*140}px"></div>${x}</div>`).join('')}</section>
+<section class="card"><h2>Photo model</h2><p class="sub">${v.model}<br>${v.data} (${v.n} images, tested on 20%)</p><div class="kv" style="grid-template-columns:1fr"><div>Accuracy<b>${v.accuracy}</b></div></div>${cm(v.matrix,'clear','blocked')}</section></div>
+<section class="card"><h2>Water-level forecaster</h2><p class="sub">${f.model}<br>${f.data} (${f.n} windows)</p><div class="kv" style="grid-template-columns:200px"><div>Average error<b>${f.mae} points</b></div></div><p class="sub">Average error is in water-level percentage points, one step (10 min) ahead on unseen data.</p></section>
+<section class="card"><h2>Other parts</h2><p class="sub">Graph network: 2-layer message passing, so a blocked drain raises risk upstream. AI assistant: ${m.llm?'connected':'not connected, using built-in answers'}. Email alerts: ${m.email?'set up':'not set up'}. Deep learning: ${m.torch?'PyTorch in use':'PyTorch not installed, using lightweight models'}.</p></section>`}
+$('#file').onchange=e=>{const f=e.target.files[0];if(f)scan(f);e.target.value=''};const dz=$('#drop');dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};dz.ondragleave=()=>dz.classList.remove('over');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])scan(e.dataTransfer.files[0])};
+const smp=k=>async()=>scan(await (await fetch('/api/sample_image?kind='+k+'&seed='+Math.floor(Math.random()*9999+5000))).blob());$('#sb').onclick=smp('blocked');$('#sc').onclick=smp('clear');$('#pdrain').onchange=e=>{sel=e.target.value;draw()};
+get('/api/state').then(set);get('/api/weather').then(w=>{wx=w;weather();if(S)draw()});
+
+// ======================= Emergency routes (real roads, flood-aware) =======================
+const SC={Safe:'#2fbf71',Moderate:'#f2c230',High:'#ff8a1f',Critical:'#e53935'},RW0={normal:{distance:30,flood:40,condition:20,time:10},emergency:{distance:10,flood:40,condition:10,time:40}},INC_T={closed:'Road closed',flooded:'Flooded road',blocked:'Blocked / accident'};
+let RM=null,RLAY={},RID=null,RES=null,rsel=null,rpick=null,rfrom=null,rto=null,rmode='normal',rw={...RW0.normal},rbusy=false,rhosp=null,rdeb=null,RINC=[];
+const rv=()=>!$('#v3').classList.contains('hide'),esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hav=(a,b)=>{const R=6371000,k=Math.PI/180,dl=(b.lat-a.lat)*k,dn=(b.lon-a.lon)*k,x=Math.sin(dl/2)**2+Math.cos(a.lat*k)*Math.cos(b.lat*k)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))};
+function rInit(){
+ if(RM)return;if(typeof L==='undefined'){$('#rmap').innerHTML='<div class="empty" style="padding:30px;color:#fff">The map library could not load. Connect to the internet and refresh the page.</div>';return}
+ const dark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'&copy; OpenStreetMap contributors &copy; CARTO'});
+ const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
+ const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});
+ RM=L.map('rmap',{layers:[dark]}).setView(S&&S.geo?S.geo.center:[10.775,76.651],14);
+ ['routes','risk','haz','drains','inc','pts'].forEach(k=>RLAY[k]=L.layerGroup().addTo(RM));
+ L.control.layers({'Dark map':dark,'Satellite':sat,'Street map':osm},{'Routes':RLAY.routes,'Road flood risk':RLAY.risk,'Hazards':RLAY.haz,'Flood alerts (drains)':RLAY.drains,'Reported incidents':RLAY.inc}).addTo(RM);
+ RM.on('click',e=>rClick(e.latlng.lat,e.latlng.lng));rIncidents();rDrains()}
+function rPick(p,msg){rpick=p;$('#rmap').classList.add('pick');$('#rmsg').textContent=msg}
+async function rClick(lat,lon){
+ if(!rpick)return;const p=rpick;rpick=null;$('#rmap').classList.remove('pick');$('#rmsg').textContent='';
+ if(p=='from'||p=='to')return rSetPt(p,{lat,lon,name:'Map point '+lat.toFixed(4)+', '+lon.toFixed(4)});
+ const r=await post('/api/incidents',{lat,lon,type:p.slice(4),note:''});rIncList(r);rEval()}
+function rSetPt(w,pt){if(w=='from'){rfrom=pt;$('#rfrom').value=pt.name}else{rto=pt;$('#rto').value=pt.name}rPts();rQuick();if(RM&&!RID)RM.setView([pt.lat,pt.lon],Math.max(RM.getZoom(),14))}
+function rPts(){if(!RM)return;RLAY.pts.clearLayers();[['A',rfrom,'#2fbf71'],['B',rto,'#e53935']].forEach(([l,p,c])=>{if(p)L.marker([p.lat,p.lon],{interactive:false,zIndexOffset:900,icon:L.divIcon({className:'dm',iconSize:[28,28],iconAnchor:[14,14],html:`<div class="rpin" style="background:${c}">${l}</div>`})}).addTo(RLAY.pts)})}
+async function rSearch(w){
+ const q=$('#r'+w).value.trim(),box=$('#r'+w+'sug');if(q.length<3){box.innerHTML='';return}
+ box.innerHTML='<div class="sg">Searching...</div>';let r;try{r=await get('/api/geocode?q='+encodeURIComponent(q))}catch(e){r={error:'Server not reachable'}}
+ if(r.error||!r.length){box.innerHTML='<div class="sg">'+(r.error?esc(r.error):'No place found. Try another name or use the Map button.')+'</div>';return}
+ box.innerHTML=r.map((x,i)=>`<div class="sg" data-i="${i}">${esc(x.name)}</div>`).join('');
+ box.querySelectorAll('.sg[data-i]').forEach(e=>e.onclick=()=>{const x=r[e.dataset.i];box.innerHTML='';rSetPt(w,{lat:x.lat,lon:x.lon,name:x.name.split(',')[0]})})}
+async function rQuick(){
+ const sl=$('#rquick');if(!S)return;if(rhosp===null){try{const r=await get('/api/hospitals');rhosp=Array.isArray(r)?r:[]}catch(e){rhosp=[]}}
+ const here=rfrom||{lat:S.geo.center[0],lon:S.geo.center[1]},hv=rhosp.map(x=>({...x,d:hav(here,x)})).sort((a,b)=>a.d-b.d),cur=sl.value;
+ sl.innerHTML='<option value="">Choose...</option>'+(hv.length?'<optgroup label="Hospitals (OpenStreetMap, nearest first)">'+hv.map((x,i)=>`<option value="h${i}">${esc(x.name)} - ${(x.d/1000).toFixed(1)} km straight</option>`).join('')+'</optgroup>':'')+'<optgroup label="Monitored drain areas">'+S.drains.map(o=>`<option value="d${o.id}">${esc(o.name)}</option>`).join('')+'</optgroup>';sl._h=hv;sl.value=cur}
+function rQuickPt(){const sl=$('#rquick'),v=sl.value;if(!v)return null;if(v[0]=='h'){const x=sl._h[+v.slice(1)];return x&&{lat:x.lat,lon:x.lon,name:x.name}}const o=S.drains.find(d=>d.id==v.slice(1));return o&&{lat:o.lat,lon:o.lon,name:o.name}}
+function rWUI(){const sum=Object.values(rw).reduce((a,b)=>a+b,0)||1;$('#rwts').innerHTML=[['distance','Distance'],['flood','Flood risk'],['condition','Road condition'],['time','Travel time']].map(([k,n])=>`<div class="wr"><span>${n}</span><input type="range" min="0" max="100" value="${rw[k]}" data-w="${k}"><b>${Math.round(100*rw[k]/sum)}%</b></div>`).join('');
+ $('#rwts').querySelectorAll('input').forEach(i=>i.oninput=()=>{rw[i.dataset.w]=+i.value;const t=Object.values(rw).reduce((a,b)=>a+b,0)||1;$('#rwts').querySelectorAll('.wr').forEach(r=>{const k=r.querySelector('input').dataset.w;r.querySelector('b').textContent=Math.round(100*rw[k]/t)+'%'});clearTimeout(rdeb);rdeb=setTimeout(rEval,350)})}
+function rSync(){if(!S)return;$('#rrain').value=S.rain;$('#rrainv').textContent=S.rain}
+async function rGo(){
+ if(!rfrom||!rto){$('#rmsg').textContent='Choose a start and a destination first (search, quick pick or the Map button).';return}
+ if(rbusy)return;rbusy=true;$('#rgo').disabled=true;$('#rbusy').classList.remove('hide');$('#rmsg').textContent='Finding real roads, flood risk, ground height and waterways (10-40 s)...';
+ let res;try{res=await post('/api/route',{from:rfrom,to:rto,mode:rmode,weights:rw})}catch(e){res={error:'The server did not answer. Is it still running?'}}
+ rbusy=false;$('#rgo').disabled=false;$('#rbusy').classList.add('hide');
+ if(res.error){$('#rmsg').textContent=res.error;return}
+ $('#rmsg').textContent='';RID=res.id;rsel=res.recommended;rShow(res,true)}
+async function rEval(){
+ if(!RID||!rv()||rbusy)return;let res;try{res=await post('/api/route_eval',{id:RID,mode:rmode,weights:rw})}catch(e){return}
+ if(res.expired){await rGo();return}if(res.error)return;rShow(res,false)}
+function rShow(res,fit){RES=res;if(!res.routes.find(r=>r.id==rsel))rsel=res.recommended;rDraw(fit);rTable();rKpi();rOver()}
+function xIcon(txt,cls,big){return L.divIcon({className:'dm',iconSize:[26,26],iconAnchor:[13,13],html:`<div class="xmk" style="background:${cls}">${big?'&#10005;':'!'}</div>${txt?`<div class="rlbl" style="background:${cls}">${txt}</div>`:''}`})}
+function rDraw(fit){
+ if(!RM||!RES)return;['routes','risk','haz'].forEach(k=>RLAY[k].clearLayers());const all=[];
+ RES.routes.forEach(r=>{all.push(...r.path);const rec=r.recommendation=='Recommended',on=r.id==rsel,col=SC[r.flood.cls],tip=`Route ${r.id}: ${r.distance_km} km, ${r.adj_min} min, flood risk ${r.flood.cls} (${r.flood.score}) - ${r.recommendation}`;
+  const pick=ev=>{L.DomEvent.stopPropagation(ev);rsel=r.id;rDraw(false);rTable()};
+  if(rec){L.polyline(r.path,{color:'#00e5ff',weight:16,opacity:.22,lineJoin:'round',interactive:false}).addTo(RLAY.routes);L.polyline(r.path,{color:'#00e5ff',weight:on?7:5,opacity:1,lineJoin:'round'}).bindTooltip(tip).on('click',pick).addTo(RLAY.routes)}
+  else L.polyline(r.path,{color:col,weight:on?6:4,opacity:on?.95:.6,dashArray:'9 8'}).bindTooltip(tip).on('click',pick).addTo(RLAY.routes);
+  if(on)r.segments.forEach(sg=>{if(sg.cls=='Safe')return;L.polyline(sg.pts,{color:SC[sg.cls],weight:sg.cls=='Moderate'?7:10,opacity:.92,lineCap:'butt',interactive:false}).addTo(RLAY.risk);if(sg.cls=='Critical')L.polyline(sg.pts,{color:'#fff',weight:2,dashArray:'6 8',opacity:.95,interactive:false}).addTo(RLAY.risk)});
+  r.hazards.forEach(h=>{if(!(on||h.cls=='Critical'||h.closed))return;const crit=h.cls=='Critical'||h.closed,txt=h.closed?'ROAD CLOSED - UNPASSABLE':h.cls=='Critical'?'FLOOD ALERT - UNPASSABLE':'HIGH FLOOD RISK';
+   L.marker([h.lat,h.lon],{zIndexOffset:700,icon:xIcon(on?txt:'',SC[h.cls],crit)}).bindTooltip(`<b>${txt}</b> (Route ${r.id}, ${h.length_m} m, risk ${h.risk})<br>${h.road?esc(h.road)+'<br>':''}${h.reasons.map(esc).join('<br>')}`).addTo(RLAY.haz)})});
+ rDrains();rPts();rDrawInc();if(fit&&all.length)RM.fitBounds(L.latLngBounds(all).pad(.15))}
+function rDrains(){
+ if(!RM||!S)return;RLAY.drains.clearLayers();
+ S.drains.forEach(o=>{if(o.level=='Low')return;const hi=o.level=='High',un=o.flood>=75,col=hi?(un?SC.Critical:SC.High):SC.Moderate;
+  L.circle([o.lat,o.lon],{radius:90+o.flood*2,color:col,weight:2,dashArray:'5 5',fillColor:col,fillOpacity:.2,interactive:false}).addTo(RLAY.drains);
+  L.marker([o.lat,o.lon],{zIndexOffset:300,icon:L.divIcon({className:'dm',iconSize:[24,24],iconAnchor:[12,12],html:`<div class="dmk" style="background:${col}">${o.flood}</div>${hi?`<div class="rlbl" style="background:${col}">${un?'FLOOD ALERT - UNPASSABLE':'FLOOD ALERT - RISK AWARE'}</div>`:''}`})}).bindTooltip(`<b>${esc(o.name)}</b>: flood risk ${o.flood}/100, water ${o.water}%. ${esc(o.eta_text)}`).addTo(RLAY.drains)})}
+async function rIncidents(){try{rIncList(await get('/api/incidents'))}catch(e){}}
+function rIncList(r){RINC=Array.isArray(r)?r:[];
+ $('#rinclist').innerHTML=RINC.length?RINC.map(i=>`<div class="item" style="border-color:#ff8a1f"><b>${INC_T[i.type]||'Incident'}</b> <small>${esc(i.time)}</small> <button class="sm" data-res="${i.id}">Resolve</button></div>`).join(''):'<div class="empty">No incidents reported.</div>';
+ $('#rinclist').querySelectorAll('[data-res]').forEach(b=>b.onclick=async()=>{rIncList(await (await fetch('/api/incidents/'+b.dataset.res,{method:'DELETE'})).json());rEval()});rDrawInc()}
+function rDrawInc(){if(!RM)return;RLAY.inc.clearLayers();RINC.forEach(i=>L.marker([i.lat,i.lon],{zIndexOffset:800,icon:xIcon('',i.type=='flooded'?SC.High:SC.Critical,i.type!='flooded')}).bindTooltip(`<b>${INC_T[i.type]||'Incident'}</b> reported ${esc(i.time)}`).addTo(RLAY.inc))}
+function rOver(){
+ const R=RES,rec=R.routes.find(r=>r.id==R.recommended),fast=R.routes.find(r=>r.id==R.kpis.fast_id),L1=[];
+ RINC.forEach(i=>L1.push(`<span style="color:${SC.Critical}">&#9679;</span> ${INC_T[i.type]||'Incident'} reported ${esc(i.time)}`));
+ if(fast.closed)L1.push(`<span style="color:${SC.Critical}">&#9679;</span> Fastest route (${fast.id}) has a closed section`);else if(fast.flood.cls=='Critical'||fast.flood.cls=='High')L1.push(`<span style="color:${SC[fast.flood.cls]}">&#9679;</span> Fastest route (${fast.id}) is ${fast.flood.cls.toLowerCase()} flood risk`);
+ if(R.kpis.drain_alerts)L1.push(`<span style="color:${SC.High}">&#9679;</span> ${R.kpis.drain_alerts} monitored drains in flood alert`);
+ $('#rinc').innerHTML='<b>ACTIVE INCIDENTS</b><br>'+(L1.length?L1.join('<br>'):'None - no road problems reported or predicted');
+ const b=$('#rrec');b.classList.remove('hide');b.style.borderColor=R.caution?SC[rec.flood.cls]:'#00e5ff';
+ b.innerHTML=`<div style="color:${R.caution?SC[rec.flood.cls]:'#00e5ff'}">${R.caution?'NO SAFE ROUTE - LEAST-RISK OPTION (ROUTE '+rec.id+')':'RECOMMENDED ROUTE '+rec.id+' - FLOOD AWARE'}</div><small>EST. TRAVEL TIME: ${rec.adj_min} MIN${rec.delay_min>=.5?' (+'+rec.delay_min+' MIN FLOOD DELAY)':''} &middot; ${rec.distance_km} KM &middot; FLOOD RISK ${rec.flood.cls.toUpperCase()}</small>`}
+function rKpi(){
+ const R=RES,k=R.kpis,rec=R.routes.find(r=>r.id==k.rec_id),fw=k.forecast,pillc=c=>`<b style="color:${SC[c]}">${c}</b>`;
+ $('#rkpi').innerHTML=`<div class="kc"><h3>Recommendation</h3><div class="big" style="color:${R.caution?SC[rec.flood.cls]:'#00b8d4'}">Route ${rec.id}</div><p class="sub" style="margin:4px 0 0">${esc(R.headline)}</p></div>
+<div class="kc"><h3>KPI - Route efficiency</h3><div class="two2"><div><small>Recommended</small><div class="big">${k.rec_min}<small> min</small></div></div><div><small>Fastest route (${k.fast_id})</small><div class="big">${k.fast_min}<small> min</small></div></div></div>
+<p class="sub" style="margin:8px 0 0">Time includes slow-downs on flooded stretches. Recommended is ${k.extra_km>=0?'+':''}${k.extra_km} km and ${k.extra_min>=0?'+':''}${k.extra_min} min vs the fastest. Flood exposure ${k.reduction}% lower.</p></div>
+<div class="kc"><h3>KPI - Risk alerts</h3><div class="two2"><div><small>Reported incidents</small><div class="big" style="color:${k.incidents?SC.Critical:'inherit'}">${k.incidents}</div></div><div><small>Risky road on fastest</small><div class="big" style="color:${k.risky_m_fastest?SC.High:'inherit'}">${k.risky_m_fastest}<small> m</small></div></div></div><p class="sub" style="margin:8px 0 0">${k.drain_alerts} monitored drains in flood alert (readings are simulated until real sensors are connected).</p></div>
+<div class="kc"><h3>KPI - Forecast window</h3><table class="rt fw"><tr><th style="width:30%"></th>${fw.map(f=>`<th>${f.label}</th>`).join('')}</tr><tr><td>Recommended</td>${fw.map(f=>`<td>${pillc(f.rec.cls)}<br><small>${f.rec.score}</small></td>`).join('')}</tr><tr><td>Fastest</td>${fw.map(f=>`<td>${pillc(f.fast.cls)}<br><small>${f.fast.score}</small></td>`).join('')}</tr></table></div>
+${R.warnings.length?`<div class="kc"><h3>Data notes</h3>${R.warnings.map(w=>`<p class="sub" style="margin:0 0 4px">${esc(w)}</p>`).join('')}</div>`:''}
+<p class="sub">Live traffic is not included (no free live traffic feed). Travel times are typical road speeds.</p>`}
+function rTable(){
+ const R=RES,sel=R.routes.find(r=>r.id==rsel),recc=r=>r=='Recommended'?'#00b8d4':r=='Avoid'?SC.Critical:'#7d8f96',pf=r=>{const w=300/r.profile.length;return `<svg viewBox="0 0 300 54" style="width:100%;max-width:520px" role="img" aria-label="Flood risk along the route">${r.profile.map(([km,v],i)=>`<rect x="${i*w}" y="${52-v*.5}" width="${w-.5}" height="${Math.max(2,v*.5)}" fill="${SC[v<25?'Safe':v<50?'Moderate':v<75?'High':'Critical']}"><title>${km} km: risk ${v}</title></rect>`).join('')}</svg>`};
+ const short=R.routes.reduce((a,b)=>a.distance_km<=b.distance_km?a:b),rec=R.routes.find(r=>r.id==R.recommended);
+ $('#rtable').innerHTML=`<h2>Route comparison</h2><p class="sub">${esc(R.formula)} Click a row to see it on the map. The shortest route is not always the safest.</p>
+<div style="overflow-x:auto"><table class="rt"><thead><tr><th>Route</th><th>Distance</th><th>Time</th><th>Flood risk</th><th>Road condition</th><th>Suitability</th><th>Recommendation</th></tr></thead><tbody>${R.routes.map(r=>`<tr data-rt="${r.id}" class="${r.id==rsel?'on':''}"><td><b>Route ${r.id}</b>${r.tags.length?'<br><small>'+r.tags.join(', ')+'</small>':''}</td><td>${r.distance_km} km</td><td>${r.adj_min} min${r.delay_min>=.5?'<br><small>+'+r.delay_min+' flood delay</small>':''}</td><td><span class="pill" style="background:${SC[r.flood.cls]};color:${r.flood.cls=='Moderate'?'#222':'#fff'}">${r.flood.cls}</span> <small>${r.flood.score}</small>${r.closed?'<br><small>closed section</small>':''}</td><td>${r.condition.label}<br><small>OSM data ${r.condition.known_pct}%</small></td><td><b>${r.suitability}</b>/100</td><td><span class="pill" style="background:${recc(r.recommendation)}">${r.recommendation}</span></td></tr>`).join('')}</tbody></table></div>
+${short.id!=rec.id?`<div class="note"><b>The shortest route is not the recommended one.</b> Route ${short.id} is the shortest (${short.distance_km} km) but is ${short.flood.cls.toLowerCase()} flood risk${short.closed?' and has a closed section':''}. Route ${rec.id} is ${(rec.distance_km-short.distance_km).toFixed(1)} km longer with ${rec.flood.cls.toLowerCase()} risk.</div>`:''}
+<div class="two" style="margin-top:12px;align-items:start"><div><h2 style="font-size:15px">Route ${sel.id} - why</h2>${sel.why.map(w=>`<div class="item" style="border-color:${SC[sel.flood.cls]}">${esc(w)}</div>`).join('')}
+${sel.hazards.length?'<div class="sub" style="margin-top:6px">Hazard stretches</div>'+sel.hazards.map(h=>`<div class="item" style="border-color:${SC[h.cls]}"><b>${h.cls}</b> - ${h.length_m} m${h.road?' on '+esc(h.road):''}<br><small>${h.reasons.map(esc).join('; ')||'modelled flood risk'}</small></div>`).join(''):'<div class="empty">No High or Critical stretches on this route.</div>'}</div>
+<div><h2 style="font-size:15px">Flood risk along Route ${sel.id}</h2>${pf(sel)}<div class="sub">Start (left) to destination (right). Taller and redder = higher flood risk.</div><div class="sub" style="margin-top:8px">Score breakdown (points, lower is better)</div>${Object.entries(sel.breakdown).map(([k,v])=>`<div class="bar"><span style="width:84px;display:inline-block">${k}</span><div style="width:${Math.max(2,v*2.4)}px"></div>${v}</div>`).join('')}</div></div>
+<details class="help"><summary>How the AI decides</summary><p>Every ~100 m of each real road route gets a flood risk from: the flood risk of nearby monitored drains (this app's models), how low the ground is compared with its surroundings (SRTM height), distance to rivers, canals and drains and underpasses (OpenStreetMap), the current rain, and incidents you report. Risk is classified Safe, Moderate, High or Critical. A route with a closed or Critical stretch is marked Avoid; otherwise the route with the best weighted score is Recommended.</p><p>Weights are starting values you can change. Ambulance / rescue mode weights travel time more and assumes smaller slow-downs, but still avoids closed and Critical roads.</p><p>Limits: drain readings are simulated until real sensors are connected; monitored drains only cover the central area, so far from them risk comes from ground height, waterways and underpasses; closures come from your reports and from OpenStreetMap tags; there is no live traffic.</p></details>`;
+ $('#rtable').querySelectorAll('tr[data-rt]').forEach(t=>t.onclick=()=>{rsel=t.dataset.rt;rDraw(false);rTable()})}
+function rBind(){
+ $('#rgo').onclick=rGo;$('#rfromb').onclick=()=>rPick('from','Click the start point on the map.');$('#rtob').onclick=()=>rPick('to','Click the destination on the map.');
+ ['from','to'].forEach(w=>$('#r'+w).onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();rSearch(w)}});
+ $('#rqf').onclick=()=>{const p=rQuickPt();if(p)rSetPt('from',p)};$('#rqt').onclick=()=>{const p=rQuickPt();if(p)rSetPt('to',p)};
+ $('#rswap').onclick=()=>{[rfrom,rto]=[rto,rfrom];$('#rfrom').value=rfrom?rfrom.name:'';$('#rto').value=rto?rto.name:'';rPts();rQuick()};
+ document.querySelectorAll('input[name=rveh]').forEach(i=>i.onchange=()=>{rmode=i.value;rw={...RW0[rmode]};rWUI();rEval()});$('#rwreset').onclick=()=>{rw={...RW0[rmode]};rWUI();rEval()};
+ const rain=async v=>{$('#rrain').value=v;$('#rrainv').textContent=v;const st=await post('/api/rain',{rain:+v});await set(st);rSync();rEval()};
+ $('#rrain').onchange=e=>rain(e.target.value);$('#rrain').oninput=e=>$('#rrainv').textContent=e.target.value;document.querySelectorAll('[data-rr]').forEach(b=>b.onclick=()=>rain(b.dataset.rr));
+ $('#rstep').onclick=async()=>{const st=await post('/api/tick',{n:1});await set(st);rSync();rEval()};
+ document.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>rPick('inc:'+b.dataset.inc,'Click the road on the map where it is '+(b.dataset.inc=='flooded'?'flooded.':'closed or blocked.')));
+ rWUI();setInterval(()=>{if(rv()&&RID&&!rbusy)get('/api/state').then(s=>{S=s;rSync();rDrains();rIncidents();rEval()}).catch(()=>{})},20000)}
+const VW=['v1','v2','v3'];
+function showV(n){VW.forEach((v,i)=>{$('#'+v).className=(i+1==n)?'':'hide';$('#n'+(i+1)).className=(i+1==n)?'cur':''});
+ if(n==1){if(S)set(S);setTimeout(()=>MAP&&MAP.invalidateSize(),60)}if(n==2)report();
+ if(n==3){rInit();setTimeout(()=>{RM&&RM.invalidateSize();rQuick();rSync();rDrains();rEval()},60)}}
+$('#n1').onclick=()=>showV(1);$('#n2').onclick=()=>showV(2);$('#n3').onclick=()=>showV(3);rBind();
+</script></body></html>
