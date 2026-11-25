@@ -3,6 +3,3 @@ numpy
 scikit-learn
 networkx
 pillow
-# Recommended for the real LSTM + CNN (the app still runs without them):
-torch
-# Optional: xgboost
